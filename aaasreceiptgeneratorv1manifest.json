@@ -1,0 +1,25 @@
+{
+  "name": "AAAS Receipt Generator",
+  "short_name": "Receipts",
+  "description": "Agunextech Solutions - Official Receipt Generator",
+  "start_url": "/AAAS-RECEIPT-GENERATOR-/",
+  "scope": "/AAAS-RECEIPT-GENERATOR-/",
+  "display": "standalone",
+  "background_color": "#0a3d1f",
+  "theme_color": "#0a3d1f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "image.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "image.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

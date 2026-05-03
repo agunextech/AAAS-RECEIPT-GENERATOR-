@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a3d1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Receipts">
+<title>AAAS Receipt Generator</title>
+<link rel="apple-touch-icon" href="https://agunextech.github.io/AAAS-RECEIPT-GENERATOR-/image.jpg">
+<link rel="icon" type="image/jpeg" href="https://agunextech.github.io/AAAS-RECEIPT-GENERATOR-/image.jpg">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBbbo7fm4lstFYENZc4FuTn652FXrdhvKg",
+  authDomain: "aaasreceiptgenerator.firebaseapp.com",
+  projectId: "aaasreceiptgenerator",
+  storageBucket: "aaasreceiptgenerator.firebasestorage.app",
+  messagingSenderId: "866343102191",
+  appId: "1:866343102191:web:664fe1dcbd63a8cf64dd1a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const COLLECTION = "receipts";
+
+// Expose Firebase functions to global scope
+window._fbSaveReceipt = async function(receipt){
+  try {
+    await addDoc(collection(db, COLLECTION), receipt);
+    return true;
+  } catch(e){ console.error('FB save error:', e); return false; }
+};
+
+window._fbGetReceipts = async function(){
+  try {
+    const q = query(collection(db, COLLECTION), orderBy("issuedAt","desc"));
+    const snap = await getDocs(q);
+    return snap.docs.map(d=>({...d.data(), _fbId: d.id}));
+  } catch(e){ console.error('FB get error:', e); return []; }
+};
+
+window._fbDeleteReceipt = async function(fbId){
+  try {
+    await deleteDoc(doc(db, COLLECTION, fbId));
+    return true;
+  } catch(e){ console.error('FB delete error:', e); return false; }
+};
+
+window._fbReady = true;
+console.log('Firebase ready');
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --g-dark:  #0a3d1f;
+  --g-mid:   #1a6b3a;
+  --g-main:  #25a244;
+  --g-light: #d4f0de;
+  --g-pale:  #f0faf3;
+  --gold:    #c9a227;
+  --gold-lt: #f5e9c0;
+  --white:   #ffffff;
+  --gray-50: #f8faf9;
+  --gray-100:#eef2ef;
+  --gray-200:#d8e2da;
+  --gray-400:#8fa897;
+  --gray-600:#4d6655;
+  --gray-800:#1e2e23;
+  --red:     #c0392b;
+  --shadow:  0 4px 20px rgba(10,61,31,0.13);
+  --radius:  12px;
+  --radius-sm: 7px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;}
+
+/* ── LOCK SCREEN ── */
+#lock-screen{
+  position:fixed;inset:0;background:var(--g-dark);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:9999;padding:32px;
+}
+.lock-logo{
+  width:90px;height:90px;background:var(--g-main);border-radius:22px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:700;color:white;letter-spacing:-1px;
+  margin-bottom:20px;box-shadow:0 8px 32px rgba(37,162,68,0.4);
+}
+.lock-title{font-size:20px;font-weight:700;color:white;margin-bottom:6px;}
+.lock-sub{font-size:13px;color:var(--g-light);opacity:0.8;margin-bottom:36px;text-align:center;}
+.lock-input-wrap{position:relative;width:100%;max-width:320px;margin-bottom:14px;}
+.lock-input{
+  width:100%;padding:14px 48px 14px 16px;
+  border:1.5px solid rgba(255,255,255,0.15);border-radius:var(--radius-sm);
+  background:rgba(255,255,255,0.07);color:white;font-size:15px;
+  font-family:'DM Mono',monospace;
+}
+.lock-input:focus{outline:none;border-color:var(--g-main);}
+.lock-input::placeholder{color:rgba(255,255,255,0.3);}
+.eye-btn{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:18px;
+}
+.lock-btn{
+  width:100%;max-width:320px;padding:14px;
+  background:var(--g-main);color:white;border:none;border-radius:var(--radius-sm);
+  font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;
+  font-family:'DM Sans',sans-serif;
+}
+.lock-btn:hover{background:var(--g-mid);}
+.lock-error{color:#ff8a80;font-size:13px;margin-top:8px;height:18px;text-align:center;}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:var(--g-dark);color:white;padding:0 16px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;box-shadow:var(--shadow);
+}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.tb-logo{
+  width:34px;height:34px;background:var(--g-main);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:white;
+}
+.tb-title{font-size:14px;font-weight:700;}
+.tb-sub{font-size:10px;color:var(--g-light);opacity:0.75;}
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-count{
+  font-size:11px;font-family:'DM Mono',monospace;
+  background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);
+  padding:3px 10px;border-radius:20px;color:var(--g-light);
+}
+.install-btn{
+  background:var(--g-main);border:none;
+  color:white;font-size:11px;padding:4px 12px;
+  border-radius:20px;cursor:pointer;font-family:"DM Sans",sans-serif;
+  font-weight:700;animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.75;}}
+.lock-out-btn{
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.7);font-size:11px;padding:4px 10px;
+  border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;
+}
+
+/* ── TABS ── */
+.tabs{
+  background:white;border-bottom:1px solid var(--gray-200);
+  display:flex;padding:0 16px;gap:4px;overflow-x:auto;
+}
+.tab-btn{
+  padding:13px 16px;border:none;background:none;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;
+  color:var(--gray-400);cursor:pointer;border-bottom:2px solid transparent;
+  white-space:nowrap;transition:all 0.2s;display:flex;align-items:center;gap:6px;
+}
+.tab-btn:hover{color:var(--g-main);}
+.tab-btn.active{color:var(--g-main);border-bottom-color:var(--g-main);}
+
+/* ── PANELS ── */
+.panel{display:none;padding:20px 16px;max-width:860px;margin:0 auto;}
+.panel.active{display:block;}
+
+/* ── CARDS ── */
+.card{
+  background:white;border-radius:var(--radius);border:1px solid var(--gray-200);
+  box-shadow:0 1px 4px rgba(10,61,31,0.06);overflow:hidden;margin-bottom:16px;
+}
+.card-header{
+  background:var(--g-pale);border-bottom:1px solid var(--gray-200);
+  padding:11px 16px;display:flex;align-items:center;gap:9px;
+}
+.ch-icon{
+  width:28px;height:28px;background:var(--g-main);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:white;
+}
+.ch-title{font-size:13px;font-weight:700;color:var(--g-dark);}
+.card-body{padding:16px;}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;}
+.req::after{content:' *';color:var(--red);}
+input,select{
+  font-family:'DM Sans',sans-serif;font-size:14px;
+  padding:9px 12px;border:1.5px solid var(--gray-200);
+  border-radius:var(--radius-sm);background:white;color:var(--gray-800);
+  transition:border-color 0.2s,box-shadow 0.2s;width:100%;
+}
+input:focus,select:focus{outline:none;border-color:var(--g-main);box-shadow:0 0 0 3px rgba(37,162,68,0.1);}
+input[readonly]{background:var(--gray-50);color:var(--gray-400);cursor:not-allowed;}
+.mono{font-family:'DM Mono',monospace;font-size:13px;}
+
+/* ── RECEIPT NO BOX ── */
+.rno-box{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--g-pale);border:1.5px solid var(--g-light);
+  border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;
+}
+.rno-label{font-size:11px;color:var(--gray-600);font-weight:700;text-transform:uppercase;}
+.rno-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--g-dark);}
+
+/* ── BUTTONS ── */
+.btn-row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;}
+.btn{
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;
+  padding:10px 20px;border-radius:var(--radius-sm);cursor:pointer;border:none;
+  display:flex;align-items:center;gap:6px;transition:all 0.15s;
+}
+.btn-primary{background:var(--g-main);color:white;}
+.btn-primary:hover{background:var(--g-mid);transform:translateY(-1px);box-shadow:var(--shadow);}
+.btn-outline{background:white;color:var(--g-mid);border:1.5px solid var(--g-main);}
+.btn-outline:hover{background:var(--g-pale);}
+.btn-ghost{background:var(--gray-100);color:var(--gray-600);}
+.btn-ghost:hover{background:var(--gray-200);}
+.btn-danger{background:#fff0f0;color:var(--red);border:1.5px solid #ffc9c9;}
+.btn-danger:hover{background:#ffe0e0;}
+.btn-gold{background:var(--gold);color:white;}
+.btn-gold:hover{background:#b8911f;}
+
+/* ── HISTORY ── */
+.search-bar{
+  display:flex;gap:10px;margin-bottom:16px;
+}
+.search-bar input{flex:1;}
+.receipt-list{display:flex;flex-direction:column;gap:10px;}
+.receipt-card{
+  background:white;border:1px solid var(--gray-200);border-radius:var(--radius-sm);
+  padding:14px 16px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;transition:all 0.15s;
+}
+.receipt-card:hover{border-color:var(--g-main);box-shadow:0 2px 12px rgba(37,162,68,0.1);}
+.rc-left{}
+.rc-no{font-family:'DM Mono',monospace;font-size:12px;color:var(--g-main);font-weight:600;margin-bottom:3px;}
+.rc-school{font-size:14px;font-weight:600;color:var(--g-dark);}
+.rc-date{font-size:11px;color:var(--gray-400);margin-top:2px;}
+.rc-right{text-align:right;}
+.rc-amount{font-size:15px;font-weight:700;color:var(--gold);}
+.rc-plan{font-size:11px;color:var(--gray-400);margin-top:2px;}
+.empty-state{text-align:center;padding:48px 20px;color:var(--gray-400);}
+.empty-icon{font-size:48px;margin-bottom:12px;}
+.empty-text{font-size:14px;}
+
+/* ── MODAL ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.5);
+  display:none;align-items:flex-end;justify-content:center;z-index:500;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:white;border-radius:var(--radius) var(--radius) 0 0;
+  width:100%;max-width:600px;max-height:90vh;overflow-y:auto;
+  padding:24px 20px;animation:slideUp 0.25s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-title{font-size:16px;font-weight:700;color:var(--g-dark);}
+.modal-close{background:var(--gray-100);border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;}
+.detail-row{display:flex;padding:8px 0;border-bottom:1px solid var(--gray-100);}
+.detail-label{font-size:12px;font-weight:700;color:var(--gray-400);text-transform:uppercase;width:140px;flex-shrink:0;}
+.detail-value{font-size:13px;color:var(--g-dark);font-weight:500;}
+.modal-btns{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--g-dark);color:white;padding:12px 22px;border-radius:var(--radius-sm);
+  font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:9000;
+  transition:transform 0.3s ease;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.success{background:var(--g-main);}
+#toast.error{background:var(--red);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:480px){
+  .form-grid{grid-template-columns:1fr;}
+  .form-group.full{grid-column:1;}
+  .btn-row{justify-content:stretch;}
+  .btn{flex:1;justify-content:center;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <img src="https://agunextech.github.io/AAAS-RECEIPT-GENERATOR-/image.jpg" alt="AAAS Receipt" style="width:110px;height:110px;border-radius:24px;object-fit:cover;margin-bottom:20px;box-shadow:0 8px 32px rgba(0,0,0,0.35);">
+  <div class="lock-title">Receipt Generator</div>
+  <div class="lock-sub">Agunextech Solutions — Secure Access</div>
+  <div class="lock-input-wrap">
+    <input class="lock-input" type="password" id="pwd-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')unlock()">
+    <button class="eye-btn" onclick="togglePwd()">👁</button>
+  </div>
+  <button class="lock-btn" onclick="unlock()">Unlock System</button>
+  <div class="lock-error" id="lock-error"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="https://agunextech.github.io/AAAS-RECEIPT-GENERATOR-/image.jpg" alt="AAAS" style="width:34px;height:34px;border-radius:8px;object-fit:cover;">
+      <div>
+        <div class="tb-title">Receipt Generator</div>
+        <div class="tb-sub">Agunextech Solutions</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span class="tb-count" id="receipt-count">0 receipts</span>
+      <button class="install-btn" id="install-btn" onclick="installApp()" style="display:none;">⬇️ Install</button>
+      <button class="lock-out-btn" onclick="lockApp()">🔒 Lock</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('new',this)">
+      <span>✏️</span> New Receipt
+    </button>
+    <button class="tab-btn" onclick="switchTab('history',this)">
+      <span>📋</span> History
+    </button>
+  </div>
+
+  <!-- NEW RECEIPT PANEL -->
+  <div class="panel active" id="panel-new">
+
+    <div class="rno-box">
+      <div>
+        <div class="rno-label">Receipt Number</div>
+        <div class="rno-value" id="preview-rno">AAAS-2026-0001</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);text-align:right;">Auto-generated<br>on issue</div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="card">
+      <div class="card-header">
+        <div class="ch-icon">🏫</div>
+        <div class="ch-title">Customer Information</div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="req">School Name</label>
+            <input type="text" id="school-name" placeholder="e.g. Dadema Secondary School">
+          </div>
+          <div class="form-group">
+            <label>Contact Person</label>
+            <input type="text" id="contact-person" placeholder="e.g. Mr. John Kamau">
+          </div>
+          <div class="form-group">
+            <label class="req">Phone Number</label>
+            <input type="tel" id="phone" placeholder="e.g. 0712345678">
+          </div>
+          <div class="form-group full">
+            <label>Email Address</label>
+            <input type="email" id="email" placeholder="e.g. school@example.com">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Details -->
+    <div class="card">
+      <div class="card-header">
+        <div class="ch-icon">💳</div>
+        <div class="ch-title">Payment Details</div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="req">Amount Paid (KES)</label>
+            <input type="number" id="amount" placeholder="e.g. 3500">
+          </div>
+          <div class="form-group">
+            <label>Payment Method</label>
+            <select id="pay-method">
+              <option value="M-Pesa" selected>M-Pesa</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cash">Cash</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="req">M-Pesa Transaction Code</label>
+            <input type="text" id="mpesa-code" placeholder="e.g. QGH7X23KPL" class="mono" style="text-transform:uppercase">
+          </div>
+          <div class="form-group">
+            <label class="req">Payment Phone Number</label>
+            <input type="tel" id="pay-phone" placeholder="e.g. 0712345678">
+          </div>
+          <div class="form-group">
+            <label class="req">Transaction Date</label>
+            <input type="date" id="txn-date">
+          </div>
+          <div class="form-group">
+            <label class="req">Transaction Time</label>
+            <input type="time" id="txn-time">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscription Details -->
+    <div class="card">
+      <div class="card-header">
+        <div class="ch-icon">📅</div>
+        <div class="ch-title">Subscription Details</div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="req">Plan Type</label>
+            <select id="plan-type" onchange="calcExpiry()">
+              <option value="">-- Select Plan --</option>
+              <option value="Free">Free — KES 0</option>
+              <option value="Starter">Starter — KES 2,500/Term</option>
+              <option value="Pro">Pro — KES 6,000/Term</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="req">Subscription Start Date</label>
+            <input type="date" id="start-date" onchange="calcExpiry()">
+          </div>
+          <div class="form-group full">
+            <label>Expiry Date (Auto-calculated)</label>
+            <input type="text" id="expiry-date" readonly class="mono" placeholder="Select plan and start date">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="clearForm()">🗑 Clear</button>
+      <button class="btn btn-primary" onclick="issueReceipt()">✅ Issue Receipt & Download PDF</button>
+    </div>
+
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div class="panel" id="panel-history">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:13px;color:var(--gray-600);font-weight:600;">All Receipts</div>
+      <button class="btn btn-outline" onclick="syncFromCloud()" style="font-size:12px;padding:7px 14px;">☁️ Sync from Cloud</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by receipt no, school or phone..." oninput="renderHistory()">
+    </div>
+    <div class="receipt-list" id="receipt-list"></div>
+  </div>
+
+</div>
+
+<!-- RECEIPT DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-rno"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="redownload()">⬇️ Download PDF</button>
+      <button class="btn btn-danger" onclick="deleteReceipt()">🗑 Delete</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="qr-hidden" style="display:none;"></div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────
+const PWD = 'A85335588b@2026';
+const SEAL_B64 = 'https://agunextech.github.io/AAAS-RECEIPT-GENERATOR-/seal.png';
+const ISSUED_BY = 'Agunda Allan';
+const COMPANY = 'Agunextech Solutions';
+const EMAIL = 'agunextech@outlook.com';
+const WEBSITE = 'agunextech.github.io';
+
+// ── AUTH ───────────────────────────────────────────────────────
+function unlock(){
+  const val = document.getElementById('pwd-input').value;
+  if(val === PWD){
+    document.getElementById('lock-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    sessionStorage.setItem('aaas_auth','1');
+    init();
+  } else {
+    const err = document.getElementById('lock-error');
+    err.textContent = 'Incorrect password. Try again.';
+    setTimeout(()=>err.textContent='',3000);
+    document.getElementById('pwd-input').value='';
+  }
+}
+function lockApp(){
+  sessionStorage.removeItem('aaas_auth');
+  document.getElementById('app').style.display='none';
+  document.getElementById('lock-screen').style.display='flex';
+  document.getElementById('pwd-input').value='';
+}
+function togglePwd(){
+  const i = document.getElementById('pwd-input');
+  i.type = i.type==='password'?'text':'password';
+}
+if(sessionStorage.getItem('aaas_auth')==='1'){
+  document.getElementById('lock-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  setTimeout(init,100);
+}
+
+// ── TABS ───────────────────────────────────────────────────────
+function switchTab(name, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='history') renderHistory();
+}
+
+// ── STORAGE ────────────────────────────────────────────────────
+function getReceipts(){ return JSON.parse(localStorage.getItem('aaas_receipts')||'[]'); }
+function saveReceipts(arr){ localStorage.setItem('aaas_receipts', JSON.stringify(arr)); }
+
+// Firebase-aware save
+async function saveReceiptToCloud(receipt){
+  if(window._fbReady && window._fbSaveReceipt){
+    const ok = await window._fbSaveReceipt(receipt);
+    if(ok) showToast('Saved to cloud ☁️','success');
+  }
+}
+
+// Load from Firebase into localStorage
+async function syncFromCloud(){
+  if(!window._fbReady || !window._fbGetReceipts) return;
+  showToast('Syncing from cloud...','');
+  try {
+    const cloudReceipts = await window._fbGetReceipts();
+    if(cloudReceipts.length > 0){
+      saveReceipts(cloudReceipts);
+      updateCount();
+      showToast('Synced '+cloudReceipts.length+' receipt(s) ☁️','success');
+    } else {
+      showToast('No cloud receipts found.','');
+    }
+  } catch(e){ showToast('Sync failed.','error'); }
+}
+function getNextNo(){
+  const year = new Date().getFullYear();
+  const arr = getReceipts();
+  const yearReceipts = arr.filter(r=>r.receiptNo.includes('-'+year+'-'));
+  const nums = yearReceipts.map(r=>parseInt(r.receiptNo.split('-').pop())||0);
+  const next = nums.length ? Math.max(...nums)+1 : 1;
+  return `AAAS-${year}-${String(next).padStart(4,'0')}`;
+}
+
+// ── VERIFICATION CODE ──────────────────────────────────────────
+function genVerifCode(rno, amount, code){
+  const raw = rno + amount + code + 'AAAS2026';
+  let hash = 0;
+  for(let i=0;i<raw.length;i++){ hash = ((hash<<5)-hash)+raw.charCodeAt(i); hash|=0; }
+  const h = Math.abs(hash).toString(36).toUpperCase().substring(0,6);
+  return 'VRF-'+h;
+}
+
+// ── EXPIRY CALC ────────────────────────────────────────────────
+function calcExpiry(){
+  const plan = document.getElementById('plan-type').value;
+  const start = document.getElementById('start-date').value;
+  // Auto-fill amount based on plan
+  const amtField = document.getElementById('amount');
+  if(plan==='Free') amtField.value='0';
+  else if(plan==='Starter') amtField.value='2500';
+  else if(plan==='Pro') amtField.value='6000';
+  // All plans are per term = 4 months
+  if(!plan||!start){ document.getElementById('expiry-date').value=''; return; }
+  const d = new Date(start);
+  d.setMonth(d.getMonth()+4);
+  d.setDate(d.getDate()-1);
+  document.getElementById('expiry-date').value = d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+function init(){
+  updateCount();
+  document.getElementById('preview-rno').textContent = getNextNo();
+  // Set defaults
+  const now = new Date();
+  document.getElementById('txn-date').value = now.toISOString().split('T')[0];
+  document.getElementById('txn-time').value = now.toTimeString().slice(0,5);
+  document.getElementById('start-date').value = now.toISOString().split('T')[0];
+}
+function updateCount(){
+  const n = getReceipts().length;
+  document.getElementById('receipt-count').textContent = n+' receipt'+(n!==1?'s':'');
+}
+
+// ── FORM ───────────────────────────────────────────────────────
+function clearForm(){
+  ['school-name','contact-person','phone','email','amount','mpesa-code','pay-phone','expiry-date'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('plan-type').value='';
+  document.getElementById('pay-method').value='M-Pesa';
+  const now = new Date();
+  document.getElementById('txn-date').value = now.toISOString().split('T')[0];
+  document.getElementById('txn-time').value = now.toTimeString().slice(0,5);
+  document.getElementById('start-date').value = now.toISOString().split('T')[0];
+  document.getElementById('preview-rno').textContent = getNextNo();
+}
+
+function validate(){
+  const required = {
+    'school-name':'School Name',
+    'phone':'Phone Number',
+    'amount':'Amount Paid',
+    'mpesa-code':'M-Pesa Transaction Code',
+    'pay-phone':'Payment Phone',
+    'txn-date':'Transaction Date',
+    'txn-time':'Transaction Time',
+    'plan-type':'Plan Type',
+    'start-date':'Start Date',
+  };
+  for(const [id,label] of Object.entries(required)){
+    if(!document.getElementById(id).value.trim()){
+      showToast('Please fill in: '+label,'error');
+      document.getElementById(id).focus();
+      return false;
+    }
+  }
+  return true;
+}
+
+// ── ISSUE RECEIPT ──────────────────────────────────────────────
+function issueReceipt(){
+  if(!validate()) return;
+  const rno = getNextNo();
+  const now = new Date();
+  const verifCode = genVerifCode(rno, document.getElementById('amount').value, document.getElementById('mpesa-code').value);
+
+  const receipt = {
+    receiptNo: rno,
+    issuedAt: now.toISOString(),
+    verifCode,
+    schoolName: document.getElementById('school-name').value.trim(),
+    contactPerson: document.getElementById('contact-person').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    amount: parseFloat(document.getElementById('amount').value),
+    payMethod: document.getElementById('pay-method').value,
+    mpesaCode: document.getElementById('mpesa-code').value.trim().toUpperCase(),
+    payPhone: document.getElementById('pay-phone').value.trim(),
+    txnDate: document.getElementById('txn-date').value,
+    txnTime: document.getElementById('txn-time').value,
+    plan: document.getElementById('plan-type').value,
+    startDate: document.getElementById('start-date').value,
+    expiryDate: document.getElementById('expiry-date').value,
+    issuedBy: ISSUED_BY,
+  };
+
+  const arr = getReceipts();
+  arr.unshift(receipt);
+  saveReceipts(arr);
+  updateCount();
+  saveReceiptToCloud(receipt);
+
+  generatePDF(receipt);
+  showToast('Receipt '+rno+' issued successfully!','success');
+  clearForm();
+}
+
+// ── FORMAT HELPERS ─────────────────────────────────────────────
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+}
+function fmtAmt(n){ return 'KES '+Number(n).toLocaleString('en-KE',{minimumFractionDigits:2}); }
+function fmtTime(t){ if(!t) return ''; const [h,m]=t.split(':'); const hh=parseInt(h); return (hh%12||12)+':'+m+' '+(hh>=12?'PM':'AM'); }
+
+// ── QR CODE GENERATION ─────────────────────────────────────────
+function generateQRDataURL(text){
+  return new Promise(resolve=>{
+    const div = document.getElementById('qr-hidden');
+    div.innerHTML='';
+    const qr = new QRCode(div,{text,width:120,height:120,colorDark:'#0a3d1f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    setTimeout(()=>{
+      const img = div.querySelector('img');
+      if(img) resolve(img.src);
+      else { const canvas=div.querySelector('canvas'); resolve(canvas?canvas.toDataURL():''); }
+    },300);
+  });
+}
+
+// ── IMAGE FETCH HELPER ────────────────────────────────────────
+function fetchImageAsDataURL(url){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 300;
+      canvas.height = img.naturalHeight || 300;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = ()=> reject(new Error('Image load failed: '+url));
+    img.src = url + '?t=' + Date.now(); // cache bust
+  });
+}
+
+// ── PDF GENERATION ─────────────────────────────────────────────
+async function generatePDF(r){
+  const qrData = `AAAS RECEIPT\nNo: ${r.receiptNo}\nSchool: ${r.schoolName}\nAmount: ${fmtAmt(r.amount)}\nCode: ${r.mpesaCode}\nVerif: ${r.verifCode}`;
+  const qrUrl = await generateQRDataURL(qrData);
+  await buildPDF(r, qrUrl);
+}
+
+async function buildPDF(r, qrUrl){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, H=297;
+  const ml=14, mr=14, mt=12;
+  const cw = W-ml-mr;
+
+  // Colors
+  const gDark=[10,61,31], gMid=[26,107,58], gMain=[37,162,68];
+  const gLight=[212,240,222], gPale=[240,250,243];
+  const gold=[201,162,39], goldLt=[245,233,192];
+  const gray=[77,102,85], grayLt=[238,242,239], white=[255,255,255];
+
+  let y = mt;
+
+  // ── HEADER BG ──
+  doc.setFillColor(...gDark);
+  doc.roundedRect(ml,y,cw,22,3,3,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.setTextColor(...white);
+  doc.text(COMPANY, W/2, y+9, {align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...gLight);
+  doc.text('Innovative Systems. Secure Technology.', W/2, y+15, {align:'center'});
+  doc.setFontSize(7.5);
+  doc.text(EMAIL, W/2, y+20, {align:'center'});
+  y+=24;
+
+  // ── TITLE ROW ──
+  doc.setFillColor(...gPale);
+  doc.roundedRect(ml,y,cw,12,2,2,'F');
+  doc.setDrawColor(...gMain);
+  doc.setLineWidth(0.5);
+  doc.line(ml,y+12,ml+cw,y+12);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...gDark);
+  doc.text('OFFICIAL PAYMENT RECEIPT', ml+4, y+8);
+  doc.setFontSize(9);
+  doc.setTextColor(...gMain);
+  doc.text('No: '+r.receiptNo, ml+cw-4, y+8, {align:'right'});
+  y+=14;
+
+  // ── AMOUNT BOX ──
+  doc.setFillColor(...goldLt);
+  doc.roundedRect(ml,y,cw,18,2,2,'F');
+  doc.setDrawColor(...gold);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(ml,y,cw,18,2,2,'S');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...gold);
+  doc.text(fmtAmt(r.amount), W/2, y+10, {align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...gray);
+  doc.text('AMOUNT PAID', W/2, y+15.5, {align:'center'});
+  y+=21;
+
+  // ── SECTION HELPER ──
+  function sectionHeader(title, yy){
+    doc.setFillColor(...gMid);
+    doc.roundedRect(ml,yy,cw,7,1.5,1.5,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...white);
+    doc.text('  '+title, ml+3, yy+5);
+    return yy+8;
+  }
+
+  // ── INFO TABLE ──
+  function infoRows(rows, yy){
+    const rowH = 7;
+    rows.forEach((row,i)=>{
+      if(i%2===0){ doc.setFillColor(...white); }
+      else { doc.setFillColor(...grayLt); }
+      doc.rect(ml, yy, cw, rowH,'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...gray);
+      doc.text(row[0], ml+3, yy+5);
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(...gDark);
+      doc.text(String(row[1]), ml+58, yy+5);
+      yy+=rowH;
+    });
+    return yy;
+  }
+
+  // ── RECEIPT INFO ──
+  y = sectionHeader('RECEIPT INFORMATION', y);
+  y = infoRows([
+    ['Date Issued', fmtDate(r.issuedAt.split('T')[0])],
+    ['Time Issued', new Date(r.issuedAt).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'})],
+    ['Issued By',   r.issuedBy+' — '+COMPANY],
+    ['Verification Code', r.verifCode],
+  ], y);
+  y+=2;
+
+  // ── CUSTOMER INFO ──
+  y = sectionHeader('CUSTOMER INFORMATION', y);
+  const custRows = [['School Name', r.schoolName],['Phone Number',r.phone]];
+  if(r.contactPerson) custRows.splice(1,0,['Contact Person',r.contactPerson]);
+  if(r.email) custRows.push(['Email Address',r.email]);
+  y = infoRows(custRows, y);
+  y+=2;
+
+  // ── PAYMENT DETAILS ──
+  y = sectionHeader('PAYMENT DETAILS', y);
+  y = infoRows([
+    ['Payment Method', r.payMethod],
+    ['Transaction Code', r.mpesaCode],
+    ['Payment Phone', r.payPhone],
+    ['Transaction Date', fmtDate(r.txnDate)+' | '+fmtTime(r.txnTime)],
+    ['Amount Paid', fmtAmt(r.amount)],
+  ], y);
+  y+=2;
+
+  // ── SUBSCRIPTION ──
+  y = sectionHeader('SUBSCRIPTION DETAILS', y);
+  y = infoRows([
+    ['Plan Type', r.plan],
+    ['Start Date', fmtDate(r.startDate)],
+    ['Expiry Date', r.expiryDate],
+  ], y);
+  y+=4;
+
+  // ── SEAL + QR SIDE BY SIDE ──
+  const sealSize = 36;
+  const qrSize = 30;
+
+  // Seal (bottom left area)
+  try {
+    // Fetch seal as dataURL to avoid CORS issues with jsPDF
+    const sealDataUrl = await fetchImageAsDataURL(SEAL_B64);
+    doc.addImage(sealDataUrl,'PNG', ml, y, sealSize, sealSize);
+  } catch(e){ console.warn('Seal load failed:',e); }
+
+  // QR code (bottom right)
+  if(qrUrl){
+    try {
+      doc.addImage(qrUrl,'PNG', ml+cw-qrSize, y, qrSize, qrSize);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6);
+      doc.setTextColor(...gray);
+      doc.text('Scan to verify', ml+cw-qrSize+(qrSize/2), y+qrSize+3, {align:'center'});
+    } catch(e){}
+  }
+
+  // Confirmed text centered between seal and QR
+  doc.setFillColor(...gPale);
+  doc.setDrawColor(...gMain);
+  doc.setLineWidth(0.5);
+  const midX = ml+sealSize+3;
+  const midW = cw-sealSize-qrSize-6;
+  doc.roundedRect(midX, y+4, midW, 14, 2,2,'FD');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...gMain);
+  doc.text('PAYMENT CONFIRMED', midX+(midW/2), y+11, {align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...gray);
+  doc.text('Official Receipt — '+COMPANY, midX+(midW/2), y+16, {align:'center'});
+
+  y += sealSize+6;
+
+  // ── FOOTER ──
+  doc.setDrawColor(...gLight);
+  doc.setLineWidth(0.4);
+  doc.line(ml, y, ml+cw, y);
+  y+=4;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...gray);
+  doc.text('Thank you for subscribing to the Agunextech Academic Analysis System (AAAS).', W/2, y, {align:'center'});
+  y+=4;
+  doc.text('For support contact: '+EMAIL+'   |   This is a computer-generated receipt.', W/2, y, {align:'center'});
+
+  doc.save(r.receiptNo+'.pdf');
+}
+
+// ── HISTORY ───────────────────────────────────────────────────
+function renderHistory(){
+  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  let arr = getReceipts();
+  if(q) arr = arr.filter(r=>
+    r.receiptNo.toLowerCase().includes(q)||
+    r.schoolName.toLowerCase().includes(q)||
+    r.phone.toLowerCase().includes(q)
+  );
+  const list = document.getElementById('receipt-list');
+  if(!arr.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">${q?'No receipts match your search.':'No receipts issued yet.'}</div></div>`;
+    return;
+  }
+  list.innerHTML = arr.map(r=>`
+    <div class="receipt-card" onclick="showDetail('${r.receiptNo}')">
+      <div class="rc-left">
+        <div class="rc-no">${r.receiptNo}</div>
+        <div class="rc-school">${r.schoolName}</div>
+        <div class="rc-date">${fmtDate(r.issuedAt.split('T')[0])} &nbsp;·&nbsp; ${r.phone}</div>
+      </div>
+      <div class="rc-right">
+        <div class="rc-amount">${fmtAmt(r.amount)}</div>
+        <div class="rc-plan">${r.plan}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── DETAIL MODAL ───────────────────────────────────────────────
+let currentReceipt = null;
+function showDetail(rno){
+  const r = getReceipts().find(x=>x.receiptNo===rno);
+  if(!r) return;
+  currentReceipt = r;
+  document.getElementById('modal-rno').textContent = r.receiptNo;
+  const rows = [
+    ['Issued At', fmtDate(r.issuedAt.split('T')[0])+' '+new Date(r.issuedAt).toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'})],
+    ['Verification Code', r.verifCode],
+    ['School Name', r.schoolName],
+    ['Contact Person', r.contactPerson||'—'],
+    ['Phone', r.phone],
+    ['Email', r.email||'—'],
+    ['Amount Paid', fmtAmt(r.amount)],
+    ['Payment Method', r.payMethod],
+    ['M-Pesa Code', r.mpesaCode],
+    ['Payment Phone', r.payPhone],
+    ['Transaction Date', fmtDate(r.txnDate)+' '+fmtTime(r.txnTime)],
+    ['Plan', r.plan],
+    ['Start Date', fmtDate(r.startDate)],
+    ['Expiry Date', r.expiryDate],
+    ['Issued By', r.issuedBy],
+  ];
+  document.getElementById('modal-body').innerHTML = rows.map(([l,v])=>`
+    <div class="detail-row">
+      <span class="detail-label">${l}</span>
+      <span class="detail-value">${v}</span>
+    </div>
+  `).join('');
+  document.getElementById('detail-modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('detail-modal').classList.remove('open'); currentReceipt=null; }
+async function redownload(){ if(currentReceipt) await generatePDF(currentReceipt); }
+async function deleteReceipt(){
+  if(!currentReceipt) return;
+  if(!confirm('Delete receipt '+currentReceipt.receiptNo+'? This cannot be undone.')) return;
+  // Delete from Firebase
+  if(window._fbReady && window._fbDeleteReceipt && currentReceipt._fbId){
+    await window._fbDeleteReceipt(currentReceipt._fbId);
+  }
+  // Delete from localStorage
+  const arr = getReceipts().filter(r=>r.receiptNo!==currentReceipt.receiptNo);
+  saveReceipts(arr);
+  closeModal();
+  updateCount();
+  renderHistory();
+  showToast('Receipt deleted.','error');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='show '+(type||'');
+  setTimeout(()=>t.className='',3200);
+}
+
+// ── INSTALL PROMPT ────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('install-btn');
+  if(btn) btn.style.display='block';
+});
+window.addEventListener('appinstalled', ()=>{
+  deferredPrompt = null;
+  const btn = document.getElementById('install-btn');
+  if(btn) btn.style.display='none';
+  showToast('App installed successfully!','success');
+});
+function installApp(){
+  if(!deferredPrompt){ showToast('Open via browser to install.','error'); return; }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; });
+}
+
+// ── SERVICE WORKER (PWA) ───────────────────────────────────────
+if('serviceWorker' in navigator){
+  const swCode = `
+    const CACHE='aaas-receipt-v4';
+    const KEEP = ['aaas-receipt-v4'];
+    self.addEventListener('install', e=>{
+      e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['.'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e=>{
+      e.waitUntil(caches.keys().then(keys=>
+        Promise.all(keys.filter(k=>!KEEP.includes(k)).map(k=>caches.delete(k)))
+      ));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', e=>e.respondWith(
+      fetch(e.request).catch(()=>caches.match(e.request))
+    ));
+  `;
+  const blob = new Blob([swCode],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob));
+}
+</script>
+</body>
+</html>

@@ -1196,8 +1196,12 @@ function issueReceipt(){
   updateCount();
   saveReceiptToCloud(receipt);
 
-  generatePDF(receipt);
-  showToast('Receipt '+rno+' issued successfully!','success');
+  generatePDF(receipt).then(()=>{
+    showToast('Receipt '+rno+' issued successfully!','success');
+  }).catch(err=>{
+    console.error('PDF generation failed:', err);
+    showToast('PDF failed: '+err.message,'error');
+  });
   clearForm();
   // Show send options
   setTimeout(()=>showSendModal(receipt), 800);
@@ -1675,8 +1679,12 @@ function issueGeneralReceipt(){
   saveReceipts(arr);
   updateCount();
   saveReceiptToCloud(receipt);
-  generateGeneralPDF(receipt);
-  showToast('Receipt '+rno+' issued!','success');
+  generateGeneralPDF(receipt).then(()=>{
+    showToast('Receipt '+rno+' issued!','success');
+  }).catch(err=>{
+    console.error('PDF generation failed:', err);
+    showToast('PDF failed: '+err.message,'error');
+  });
   clearGenForm();
   setTimeout(()=>showSendModal(receipt), 800);
 }
